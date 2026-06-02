@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}About Us - AI Learning Path Generator{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto; padding: 2rem 0;">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">About the Platform</h1>
+            <p class="page-subtitle">Personalized education powered by intelligent recommendations</p>
+        </div>
+    </div>
+    
+    <div class="glass-panel widget-card" style="margin-bottom: 2rem; padding: 2rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent-purple);">Our Mission</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 1.05rem;">
+            In today's digital age, the amount of technical study content is overwhelming. Students often find themselves trapped in "tutorial hell," shifting between books and video courses without clear directions or practical build exercises.
+        </p>
+        <p style="color: var(--text-secondary); font-size: 1.05rem;">
+            The **AI Learning Path Generator** was designed to solve this by providing custom-tailored curriculum sequences. Based on your current education, skills you already know, target career, and daily time constraints, we build a weekly program matching your learning style.
+        </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="glass-panel widget-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.2rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--accent-cyan);">
+                <i class="fa-solid fa-brain"></i> Adaptive Duration
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Our engine automatically compresses the path into 4 weeks for students with high availability, or expands it to 8 weeks for students balancing multiple studies, adjusting workloads accordingly.
+            </p>
+        </div>
+        
+        <div class="glass-panel widget-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.2rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--accent-pink);">
+                <i class="fa-solid fa-gamepad"></i> Gamification Rules
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Earn 50 Experience Points (XP) for every weekly module checked off. Unlock progression badges like "Consistency Champ" and rank on the student leaderboard.
+            </p>
+        </div>
+    </div>
+
+    <div class="glass-panel widget-card" style="padding: 2rem;">
+        <h2 style="font-size: 1.3rem; margin-bottom: 1rem; color: var(--accent-indigo);">System Details</h2>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 1rem; color: var(--text-secondary); font-size: 0.95rem;">
+            <li style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fa-solid fa-circle-check" style="color: var(--success);"></i>
+                <span>Designed using the Python Django web framework and SQLite.</span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fa-solid fa-circle-check" style="color: var(--success);"></i>
+                <span>Responsive frontend featuring glassmorphism styles and interactive animations.</span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fa-solid fa-circle-check" style="color: var(--success);"></i>
+                <span>Rule-based NLP counselor chatbot assistant for general student guidance.</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

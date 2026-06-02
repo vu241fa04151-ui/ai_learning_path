@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Register Student Account - AI LearnPath{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 3rem auto; padding: 0 1rem;">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <i class="fa-solid fa-graduation-cap" style="font-size: 3rem; margin-bottom: 1rem; color: var(--accent-purple);"></i>
+        <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Join AI LearnPath</h1>
+        <p style="color: var(--text-secondary);">Start your personalized technical training today</p>
+    </div>
+    
+    <div class="glass-panel widget-card" style="padding: 2.5rem;">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                           id="{{ field.id_for_label }}" 
+                           name="{{ field.html_name }}" 
+                           value="{{ field.value|default:'' }}"
+                           class="form-control {% if field.errors %}is-invalid{% endif %}"
+                           placeholder="Enter {{ field.label|lower }}"
+                           required>
+                    {% if field.help_text %}
+                        <small style="display: block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--text-muted);">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% if field.errors %}
+                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+                            {{ field.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                <i class="fa-solid fa-user-plus"></i> Create Account
+            </button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+            Already have an account? <a href="{% url 'login' %}" style="font-weight: 600;">Log In here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

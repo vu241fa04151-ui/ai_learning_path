@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Doubt Portal & Feedback - AI LearnPath{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Feedback & Doubts Portal</h1>
+        <p class="page-subtitle">Submit academic queries, platform doubts, or general improvement suggestions to the administration.</p>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Feedback / Query Submission Form -->
+    <div class="glass-panel widget-card" style="padding: 2.5rem; height: fit-content;">
+        <h2 style="font-size: 1.3rem; margin-bottom: 1.5rem; color: var(--accent-indigo);">Submit a Ticket</h2>
+        
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <!-- Type Selector -->
+            <div class="form-group">
+                <label for="id_feedback_type">Ticket Category</label>
+                <select id="id_feedback_type" name="feedback_type" class="form-control">
+                    {% for value, text in form.fields.feedback_type.choices %}
+                        <option value="{{ value }}" {% if form.feedback_type.value == value %}selected{% endif %}>{{ text }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Message -->
+            <div class="form-group">
+                <label for="id_message">Your Question / Message</label>
+                <textarea id="id_message" name="message" class="form-control" rows="6" placeholder="Be detailed. If asking a coding doubt, specify the weekly module topic or project roadblock." required></textarea>
+                {% if form.message.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.message.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                <i class="fa-solid fa-paper-plane"></i> Submit Ticket
+            </button>
+        </form>
+    </div>
+    
+    <!-- Right Column: Ticket History & Admin replies thread -->
+    <div class="flex-column">
+        <div class="glass-panel widget-card">
+            <h3 class="widget-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple);"></i> Your Ticket History</h3>
+            
+            {% if feedbacks.exists %}
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
+                    {% for f in feedbacks %}
+                        <div class="glass-panel" style="padding: 1.25rem; border-color: rgba(99, 102, 241, 0.15);">
+                            <!-- Header status row -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span style="font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase;
+                                             background: {% if f.feedback_type == 'Doubt' %}rgba(239, 68, 68, 0.1); color: var(--danger);{% elif f.feedback_type == 'Suggestion' %}rgba(6, 182, 212, 0.1); color: var(--accent-cyan);{% else %}rgba(99, 102, 241, 0.1); color: var(--accent-indigo);{% endif %}">
+                                    {{ f.feedback_type }}
+                                </span>
+                                
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ f.created_at|date:'M d, Y' }}</span>
+                            </div>
+                            
+                            <!-- Student query text -->
+                            <p style="font-size: 0.9rem; line-height: 1.5; color: white; margin-bottom: 1rem;">{{ f.message }}</p>
+                            
+                            <!-- Admin Reply Block -->
+                            {% if f.admin_response %}
+                                <div style="background: rgba(16, 185, 129, 0.05); border-left: 3px solid var(--success); border-radius: 6px; padding: 0.85rem; font-size: 0.85rem;">
+                                    <div style="font-weight: 700; color: var(--success); margin-bottom: 0.25rem;">
+                                        <i class="fa-solid fa-reply"></i> Admin Response:
+                                    </div>
+                                    <div style="color: var(--text-secondary); line-height: 1.4;">{{ f.admin_response }}</div>
+                                </div>
+                            {% else %}
+                                <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--warning); font-weight: 600; padding: 0.25rem 0.6rem; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 4px;">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Awaiting Mentor Response
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 2rem 0;">
+                    You haven't submitted any doubts or queries yet. Fill the form to contact administration mentors.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generated Learning Path - {{ path.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+    <div>
+        <span style="font-size: 0.85rem; color: var(--accent-purple); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Generated Roadmap Result</span>
+        <h1 class="page-title" style="font-size: 2.2rem; margin-top: 0.25rem;">{{ path.title }}</h1>
+        <p class="page-subtitle" style="margin-top: 0.25rem;">
+            Target Role: <strong>{{ path.career_target }}</strong> | Duration: <strong>{{ path.duration_weeks }} Weeks</strong> | Generated on {{ path.created_at|date:'F d, Y' }}
+        </p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <button id="print-roadmap-btn" class="btn btn-secondary">
+            <i class="fa-solid fa-file-pdf"></i> Download PDF
+        </button>
+        {% if not path.is_active %}
+            <a href="{% url 'set_active_path' path.id %}" class="btn btn-primary">
+                <i class="fa-solid fa-circle-check"></i> Make Active Path
+            </a>
+        {% else %}
+            <span class="btn btn-success" style="cursor: default;">
+                <i class="fa-solid fa-circle-check"></i> Active Plan
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Main Timeline Layout Grid -->
+<div class="dashboard-grid">
+    <!-- Left Column: Vertical Timeline -->
+    <div class="glass-panel widget-card" style="padding: 2.5rem;">
+        <h2 style="font-size: 1.4rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-route" style="color: var(--accent-indigo);"></i> Path Milestones Timeline
+        </h2>
+        
+        <div class="timeline">
+            {% for data in modules_data %}
+                <div class="timeline-item {% if data.status == 'Completed' %}completed{% endif %}">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-week">Week {{ data.module.week_number }}</div>
+                    <h3 style="font-size: 1.25rem; margin: 0.25rem 0 0.5rem 0;">{{ data.module.title }}</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
+                        {{ data.module.description }}
+                    </p>
+                    
+                    <!-- Recommendations inside each milestone -->
+                    {% if data.recommendations.exists %}
+                        <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.5rem; text-transform: uppercase;">
+                                Recommended Resources
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                {% for res in data.recommendations %}
+                                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 0.9rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            {% if res.resource_type == 'Video' %}
+                                                <i class="fa-brands fa-youtube" style="color: #ef4444;" title="Video Tutorial"></i>
+                                            {% elif res.resource_type == 'Reading' %}
+                                                <i class="fa-solid fa-book" style="color: var(--accent-indigo);" title="Documentation / Article"></i>
+                                            {% elif res.resource_type == 'Practice' %}
+                                                <i class="fa-solid fa-code" style="color: var(--success);" title="Interactive Coding Practice"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-link" title="Web Resource"></i>
+                                            {% endif %}
+                                            <span style="font-weight: 500;">{{ res.title }}</span>
+                                            {% if res.description %}
+                                                <span style="color: var(--text-muted); font-size: 0.8rem;">- {{ res.description }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <a href="{{ res.url }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: 8px;">
+                                            Start Study <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
+                                        </a>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Right Column: Project recommendations sidebar drawer -->
+    <div class="flex-column">
+        <div class="glass-panel widget-card">
+            <h3 class="widget-title"><i class="fa-solid fa-laptop-code" style="color: var(--accent-purple);"></i> Suggested Projects</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                Build these mini-projects sequentially as you advance through the timeline to test your skills in real environments.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                {% for proj in projects %}
+                    <div class="glass-panel" style="padding: 1.25rem; border-color: rgba(99, 102, 241, 0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span class="badge-type" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: {% if proj.difficulty == 'Beginner' %}var(--success){% elif proj.difficulty == 'Intermediate' %}var(--warning){% else %}var(--accent-pink){% endif %};">
+                                {{ proj.difficulty }}
+                            </span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ proj.technologies }}</span>
+                        </div>
+                        <h4 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: white;">{{ proj.title }}</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">{{ proj.description }}</p>
+                        
+                        {% if proj.milestones %}
+                            <div style="font-size: 0.8rem; border-top: 1px dashed var(--border-color); padding-top: 0.75rem;">
+                                <div style="font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.25rem;">Milestones Checklist:</div>
+                                <div style="color: var(--text-secondary); white-space: pre-line; line-height: 1.4;">{{ proj.milestones }}</div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

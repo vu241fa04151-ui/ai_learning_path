@@ -1,0 +1,142 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Learning Path Generator{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation (Only visible for authenticated users) -->
+        {% if user.is_authenticated %}
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-graduation-cap brand-icon"></i>
+                <span class="brand-name">AI LearnPath</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <li class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <a href="{% url 'dashboard' %}">
+                        <i class="fa-solid fa-gauge"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.resolver_match.url_name == 'generate_path' %}active{% endif %}">
+                    <a href="{% url 'generate_path' %}">
+                        <i class="fa-solid fa-compass"></i>
+                        <span>Generate Path</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.resolver_match.url_name == 'resources' %}active{% endif %}">
+                    <a href="{% url 'resources' %}">
+                        <i class="fa-solid fa-book-open"></i>
+                        <span>Resources</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.resolver_match.url_name == 'projects' %}active{% endif %}">
+                    <a href="{% url 'projects' %}">
+                        <i class="fa-solid fa-laptop-code"></i>
+                        <span>Projects</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.resolver_match.url_name == 'feedback' %}active{% endif %}">
+                    <a href="{% url 'feedback' %}">
+                        <i class="fa-solid fa-message"></i>
+                        <span>Feedback & doubts</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                    <a href="{% url 'profile' %}">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Profile Setup</span>
+                    </a>
+                </li>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <img src="{% if user.profile.avatar %}{% static 'images/' %}{{ user.profile.avatar }}{% else %}{% static 'images/default_avatar.png' %}{% endif %}" 
+                     class="user-avatar" 
+                     alt="Avatar"
+                     onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed={{ user.username }}'">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="points-badge">
+                        <i class="fa-solid fa-star"></i> <span class="student-points-val">{{ user.profile.points }}</span> XP
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; text-align: center;">
+                <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: 100%;">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </form>
+            </div>
+        </aside>
+        {% endif %}
+        
+        <!-- Main Content View Wrapper -->
+        <main class="main-content" style="{% if not user.is_authenticated %}margin-left: 0; width: 100%;{% endif %}">
+            
+            <!-- Django System Messages -->
+            {% if messages %}
+                <div class="messages-container" style="margin-bottom: 2rem;">
+                    {% for message in messages %}
+                        <div class="glass-panel {% if message.tags %}{{ message.tags }}{% endif %}" 
+                             style="padding: 1rem 1.5rem; margin-bottom: 0.75rem; border-left: 4px solid {% if message.tags == 'success' %}var(--success){% elif message.tags == 'error' %}var(--danger){% else %}var(--accent-indigo){% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- MOCK AI CHATBOT (Only for Authenticated Students) -->
+    {% if user.is_authenticated %}
+    <div class="chat-trigger-btn">
+        <i class="fa-solid fa-user-tie"></i>
+    </div>
+    
+    <div class="chatbot-bubble glass-panel">
+        <div class="chatbot-header">
+            <span class="chatbot-title">
+                <i class="fa-solid fa-robot"></i> AI Academic Counselor
+            </span>
+            <button class="close-chat-btn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="chatbot-messages">
+            <div class="chat-msg counselor">
+                Hello <strong>{{ user.profile.full_name|default:user.username }}</strong>! I am your personal AI Counselor. Ask me any question about your study path, career goals, or resources!
+            </div>
+        </div>
+        
+        <div class="chatbot-input-row">
+            <input type="text" class="chat-input" placeholder="Ask about Python, Django, React...">
+            <button class="send-chat-btn"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Custom Script File -->
+    <script src="{% static 'js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

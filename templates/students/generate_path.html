@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Learning Path - AI LearnPath{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="text-align: center; width: 100%;">
+        <h1 class="page-title">Generate AI Learning Path</h1>
+        <p class="page-subtitle">Configure your targets and study schedule to generate a personalized weekly roadmap.</p>
+    </div>
+</div>
+
+<div class="glass-panel generator-card">
+    
+    <!-- Step Node Progress Indicators -->
+    <div class="form-step-indicator">
+        <div class="step-node active" id="node-0">1</div>
+        <div class="step-node" id="node-1">2</div>
+        <div class="step-node" id="node-2">3</div>
+    </div>
+    
+    <form method="post" id="path-generator-form" novalidate>
+        {% csrf_token %}
+        
+        <!-- STEP 1: TARGET CAREER & LEVEL -->
+        <div class="step-tab active" id="step-0">
+            <h2 style="font-size: 1.3rem; margin-bottom: 1.5rem; color: var(--accent-purple); text-align: center;">
+                Choose Your Career Target & Level
+            </h2>
+            
+            <div class="form-group">
+                <label>Select Career Target</label>
+                <!-- Choice cards grid mapping to career field -->
+                <div class="choice-cards-grid">
+                    <div class="choice-card selected" data-input="id_career_target" data-value="Full Stack Developer" data-group="career">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <div class="choice-card-title">Full Stack Developer</div>
+                    </div>
+                    <div class="choice-card" data-input="id_career_target" data-value="Frontend Developer" data-group="career">
+                        <i class="fa-solid fa-code"></i>
+                        <div class="choice-card-title">Frontend Developer</div>
+                    </div>
+                    <div class="choice-card" data-input="id_career_target" data-value="Backend Developer" data-group="career">
+                        <i class="fa-solid fa-server"></i>
+                        <div class="choice-card-title">Backend Developer</div>
+                    </div>
+                    <div class="choice-card" data-input="id_career_target" data-value="Data Scientist" data-group="career">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <div class="choice-card-title">Data Scientist</div>
+                    </div>
+                    <div class="choice-card" data-input="id_career_target" data-value="Machine Learning Engineer" data-group="career">
+                        <i class="fa-solid fa-brain"></i>
+                        <div class="choice-card-title">ML Engineer</div>
+                    </div>
+                    <div class="choice-card" data-input="id_career_target" data-value="Mobile App Developer" data-group="career">
+                        <i class="fa-solid fa-mobile-screen"></i>
+                        <div class="choice-card-title">Mobile Developer</div>
+                    </div>
+                </div>
+                <!-- Hidden inputs synchronized by JS choice card click -->
+                <input type="hidden" id="id_career_target" name="career_target" value="Full Stack Developer">
+            </div>
+            
+            <div class="form-group" style="margin-top: 2rem;">
+                <label>Select Experience Level</label>
+                <div class="choice-cards-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="choice-card selected" data-input="id_experience_level" data-value="Beginner" data-group="level">
+                        <i class="fa-solid fa-seedling"></i>
+                        <div class="choice-card-title">Beginner</div>
+                    </div>
+                    <div class="choice-card" data-input="id_experience_level" data-value="Intermediate" data-group="level">
+                        <i class="fa-solid fa-tree"></i>
+                        <div class="choice-card-title">Intermediate</div>
+                    </div>
+                    <div class="choice-card" data-input="id_experience_level" data-value="Advanced" data-group="level">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        <div class="choice-card-title">Advanced</div>
+                    </div>
+                </div>
+                <input type="hidden" id="id_experience_level" name="experience_level" value="Beginner">
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 2rem;">
+                <button type="button" class="btn btn-primary next-step-btn">
+                    Next Step <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- STEP 2: PROFILE & SKILL INVENTORY -->
+        <div class="step-tab" id="step-1">
+            <h2 style="font-size: 1.3rem; margin-bottom: 1.5rem; color: var(--accent-indigo); text-align: center;">
+                Your Background & Skills Inventory
+            </h2>
+            
+            <div class="form-group">
+                <label for="id_full_name">Full Name</label>
+                <input type="text" id="id_full_name" name="full_name" value="{{ form.full_name.value|default:'' }}" class="form-control" placeholder="Enter your full name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="id_education_level">Education Level</label>
+                <input type="text" id="id_education_level" name="education_level" value="{{ form.education_level.value|default:'' }}" class="form-control" placeholder="e.g. B.Tech Computer Science, High School, Self-taught" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Skills You Already Know</label>
+                <div class="checkbox-list" style="margin-bottom: 0.75rem;">
+                    {% for skill in form.fields.current_skills.queryset %}
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="current_skills" value="{{ skill.id }}"
+                                   {% if skill in profile.skills.all %}checked{% endif %}>
+                            <span>{{ skill.name }}</span>
+                        </label>
+                    {% empty %}
+                        <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem; width: 100%; text-align: center;">
+                            No default skills available in system database.
+                        </div>
+                    {% endfor %}
+                </div>
+                <input type="text" id="id_new_skills_text" name="new_skills_text" class="form-control" placeholder="Or type other skills separated by commas (e.g. Git, Docker, Go)">
+            </div>
+            
+            <div class="form-group">
+                <label for="id_interests">Interests & Subfields</label>
+                <textarea id="id_interests" name="interests" class="form-control" rows="2" placeholder="e.g. Artificial Intelligence, Web Security, UI Design">{{ form.interests.value|default:'' }}</textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 2rem;">
+                <button type="button" class="btn btn-secondary prev-step-btn">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="button" class="btn btn-primary next-step-btn">
+                    Next Step <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- STEP 3: SCHEDULE BUDGET & STYLE -->
+        <div class="step-tab" id="step-2">
+            <h2 style="font-size: 1.3rem; margin-bottom: 1.5rem; color: var(--accent-cyan); text-align: center;">
+                Study Constraints & Preferences
+            </h2>
+            
+            <div class="form-group">
+                <label for="id_study_hours_per_day">Available Study Hours per Day</label>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <input type="number" id="id_study_hours_per_day" name="study_hours_per_day" value="{{ form.study_hours_per_day.value|default:'2.0' }}" step="0.5" min="0.5" max="24.0" class="form-control" style="width: 120px;" required>
+                    <span style="color: var(--text-secondary); font-size: 0.95rem;">
+                        Note: <strong>&lt; 2 hrs</strong> generates an 8-week path. <strong>2 - 4 hrs</strong> generates a 6-week path. <strong>&gt;= 4 hrs</strong> generates a intensive 4-week path.
+                    </span>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-top: 2rem;">
+                <label>Preferred Learning Mode</label>
+                <div class="choice-cards-grid" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="choice-card selected" data-input="id_preferred_learning_mode" data-value="Mixed" data-group="mode">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <div class="choice-card-title" style="font-size: 0.8rem;">Balanced Mix</div>
+                    </div>
+                    <div class="choice-card" data-input="id_preferred_learning_mode" data-value="Video" data-group="mode">
+                        <i class="fa-brands fa-youtube"></i>
+                        <div class="choice-card-title" style="font-size: 0.8rem;">Video Focus</div>
+                    </div>
+                    <div class="choice-card" data-input="id_preferred_learning_mode" data-value="Reading" data-group="mode">
+                        <i class="fa-solid fa-book"></i>
+                        <div class="choice-card-title" style="font-size: 0.8rem;">Reading Focus</div>
+                    </div>
+                    <div class="choice-card" data-input="id_preferred_learning_mode" data-value="Practice" data-group="mode">
+                        <i class="fa-solid fa-code"></i>
+                        <div class="choice-card-title" style="font-size: 0.8rem;">Practice Focus</div>
+                    </div>
+                </div>
+                <input type="hidden" id="id_preferred_learning_mode" name="preferred_learning_mode" value="Mixed">
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 3rem;">
+                <button type="button" class="btn btn-secondary prev-step-btn">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple)); border: none; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate AI Learning Path
+                </button>
+            </div>
+        </div>
+        
+    </form>
+</div>
+{% endblock %}

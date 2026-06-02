@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Study Resources - AI LearnPath{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Resource Directory</h1>
+        <p class="page-subtitle">Curated study links, documentation, practice portals, and video courses for <strong>{{ career_target }}</strong>.</p>
+    </div>
+</div>
+
+<!-- Search & Filtering Panel -->
+<div class="glass-panel widget-card" style="padding: 1.5rem; margin-bottom: 2.5rem;">
+    <form method="get" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <!-- Query search -->
+        <div style="flex-grow: 1; min-width: 250px;">
+            <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by resource title, details or topics...">
+        </div>
+        
+        <!-- Filter select -->
+        <div style="width: 180px;">
+            <select name="type" class="form-control">
+                <option value="">All Formats</option>
+                <option value="Video" {% if res_type == 'Video' %}selected{% endif %}>Video Tutorials</option>
+                <option value="Reading" {% if res_type == 'Reading' %}selected{% endif %}>Readings & Docs</option>
+                <option value="Practice" {% if res_type == 'Practice' %}selected{% endif %}>Coding Practice</option>
+                <option value="Course" {% if res_type == 'Course' %}selected{% endif %}>Full Courses</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="padding: 0 1.5rem;">
+            <i class="fa-solid fa-magnifying-glass"></i> Filter
+        </button>
+        
+        {% if query or res_type %}
+            <a href="{% url 'resources' %}" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; padding: 0 1.25rem;">
+                Clear
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Resource Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+    {% for res in recommendations %}
+        <div class="glass-panel widget-card" style="display: flex; flex-direction: column; justify-content: space-between; border-color: rgba(99, 102, 241, 0.15);">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <!-- Chip -->
+                    <span style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 30px; text-transform: uppercase;
+                                 background: {% if res.resource_type == 'Video' %}rgba(239, 68, 68, 0.15); color: #ef4444;{% elif res.resource_type == 'Reading' %}rgba(99, 102, 241, 0.15); color: var(--accent-indigo);{% else %}rgba(16, 185, 129, 0.15); color: var(--success);{% endif %}">
+                        {% if res.resource_type == 'Video' %}<i class="fa-brands fa-youtube"></i> Video
+                        {% elif res.resource_type == 'Reading' %}<i class="fa-solid fa-book"></i> Reading
+                        {% elif res.resource_type == 'Practice' %}<i class="fa-solid fa-code"></i> Practice
+                        {% else %}<i class="fa-solid fa-graduation-cap"></i> Course{% endif %}
+                    </span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Week {{ res.module.week_number }} Module</span>
+                </div>
+                
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; line-height: 1.4; color: white;">{{ res.title }}</h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                    {{ res.description|default:"A curated study link corresponding to your personalized timeline lessons." }}
+                </p>
+            </div>
+            
+            <a href="{{ res.url }}" target="_blank" class="btn btn-secondary" style="width: 100%; justify-content: center; padding: 0.5rem; font-size: 0.85rem;">
+                Open Resource <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.75rem;"></i>
+            </a>
+        </div>
+    {% empty %}
+        <!-- Empty catalog state -->
+        <div class="glass-panel widget-card" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem;">
+            <i class="fa-solid fa-book-open" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem; opacity: 0.5;"></i>
+            <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">No Resources Found</h3>
+            <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">
+                We couldn't find any resources matching your search constraints. Make sure you have an active generated pathway to load resources!
+            </p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

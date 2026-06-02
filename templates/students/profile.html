@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profile Setup - AI LearnPath{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Profile Setup</h1>
+        <p class="page-subtitle">Configure your details, choose your avatar, and review your points.</p>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Profile edit Form -->
+    <div class="glass-panel widget-card" style="padding: 2.5rem;">
+        <h2 style="font-size: 1.3rem; margin-bottom: 2rem; color: var(--accent-indigo);">Student Profile Settings</h2>
+        
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <!-- Full Name -->
+            <div class="form-group">
+                <label for="id_full_name">Full Name</label>
+                <input type="text" id="id_full_name" name="full_name" value="{{ form.full_name.value|default:'' }}" class="form-control" placeholder="Enter your full name" required>
+                {% if form.full_name.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.full_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <!-- Education level -->
+            <div class="form-group">
+                <label for="id_education_level">Education Level</label>
+                <input type="text" id="id_education_level" name="education_level" value="{{ form.education_level.value|default:'' }}" class="form-control" placeholder="e.g. Computer Science Student, High Schooler" required>
+                {% if form.education_level.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.education_level.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <!-- Career Target -->
+                <div class="form-group">
+                    <label for="id_career_target">Career Target</label>
+                    <select id="id_career_target" name="career_target" class="form-control">
+                        {% for value, text in form.fields.career_target.choices %}
+                            <option value="{{ value }}" {% if form.career_target.value == value %}selected{% endif %}>{{ text }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Study Hours per day -->
+                <div class="form-group">
+                    <label for="id_study_hours_per_day">Available Hours/Day</label>
+                    <input type="number" id="id_study_hours_per_day" name="study_hours_per_day" value="{{ form.study_hours_per_day.value|default:'2.0' }}" step="0.5" min="0.5" class="form-control" required>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <!-- Experience Level -->
+                <div class="form-group">
+                    <label for="id_experience_level">Experience Level</label>
+                    <select id="id_experience_level" name="experience_level" class="form-control">
+                        {% for value, text in form.fields.experience_level.choices %}
+                            <option value="{{ value }}" {% if form.experience_level.value == value %}selected{% endif %}>{{ text }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Learning Style -->
+                <div class="form-group">
+                    <label for="id_learning_style">Learning Style</label>
+                    <select id="id_learning_style" name="learning_style" class="form-control">
+                        {% for value, text in form.fields.learning_style.choices %}
+                            <option value="{{ value }}" {% if form.learning_style.value == value %}selected{% endif %}>{{ text }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Avatar Selection -->
+            <div class="form-group">
+                <label for="id_avatar">Choose Avatar Role</label>
+                <select id="id_avatar" name="avatar" class="form-control">
+                    {% for value, text in form.fields.avatar.choices %}
+                        <option value="{{ value }}" {% if form.avatar.value == value %}selected{% endif %}>{{ text }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Interests -->
+            <div class="form-group">
+                <label for="id_interests">Interests & Subfields</label>
+                <textarea id="id_interests" name="interests" class="form-control" rows="3">{{ form.interests.value|default:'' }}</textarea>
+            </div>
+            
+            <!-- Skills Multi select checkboxes -->
+            <div class="form-group">
+                <label>Skills You Already Know</label>
+                <div class="checkbox-list">
+                    {% for skill in form.fields.skills.queryset %}
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="skills" value="{{ skill.id }}" 
+                                   {% if skill in profile.skills.all %}checked{% endif %}>
+                            <span>{{ skill.name }}</span>
+                        </label>
+                    {% empty %}
+                        <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem; width: 100%; text-align: center;">
+                            No preset skills available. Write skills when generating a pathway!
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Profile Settings
+            </button>
+        </form>
+    </div>
+    
+    <!-- Right Column: Avatar visualization and points cabinet summary -->
+    <div class="flex-column">
+        <!-- Visual Avatar card -->
+        <div class="glass-panel widget-card" style="text-align: center; padding: 2.5rem 1.5rem;">
+            <div style="position: relative; display: inline-block; margin-bottom: 1.5rem;">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed={{ user.username }}" 
+                     style="width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--accent-purple); padding: 5px; background: var(--bg-secondary);" 
+                     alt="User Big Avatar">
+                <div style="position: absolute; bottom: 5px; right: 5px; width: 32px; height: 32px; border-radius: 50%; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;" title="Account Active">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+            </div>
+            
+            <h2 style="font-size: 1.4rem; margin-bottom: 0.25rem;">{{ profile.full_name|default:user.username }}</h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Joined {{ user.date_joined|date:'F Y' }}</p>
+            
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem;">
+                <div class="glass-panel" style="padding: 0.75rem 1.25rem; text-align: center;">
+                    <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan);">{{ profile.points }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Total XP</div>
+                </div>
+                <div class="glass-panel" style="padding: 0.75rem 1.25rem; text-align: center;">
+                    <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-purple);">{{ earned_badges.count }} / {{ all_badges_count }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Badges</div>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+                You earn XP by creating paths, maintaining study days consistency, and checking off weekly learning blocks. Update your details above to target new programming careers.
+            </p>
+        </div>
+        
+        <!-- Earned badges drawer -->
+        <div class="glass-panel widget-card">
+            <h3 class="widget-title"><i class="fa-solid fa-award" style="color: var(--warning);"></i> Unlocked Achievements</h3>
+            {% if earned_badges.exists %}
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    {% for sb in earned_badges %}
+                        <div class="glass-panel" style="padding: 0.85rem; display: flex; align-items: center; gap: 1rem; border-color: rgba(139, 92, 246, 0.15);">
+                            <div style="width: 42px; height: 42px; border-radius: 50%; background: rgba(139, 92, 246, 0.1); border: 2px solid var(--accent-purple); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: white;">
+                                <i class="{{ sb.badge.icon }}"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.85rem;">{{ sb.badge.name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ sb.badge.description }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1.5rem 0;">
+                    Complete tasks in your study path to unlock achievements!
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

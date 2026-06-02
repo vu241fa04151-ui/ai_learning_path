@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - AI Learning Path Generator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Welcome, {{ profile.full_name|default:user.username }}!</h1>
+        <p class="page-subtitle">Track your learning progress, maintain your streak, and unlock badges.</p>
+    </div>
+    <div>
+        <a href="{% url 'generate_path' %}" class="btn btn-primary">
+            <i class="fa-solid fa-compass"></i> New Pathway
+        </a>
+    </div>
+</div>
+
+<!-- Stats Row Widgets -->
+<div class="stats-row">
+    <!-- Daily Streak Tracker -->
+    <div class="glass-panel stat-card">
+        <div class="stat-icon" style="color: #ff5e3a; background: rgba(255, 94, 58, 0.15); border-color: rgba(255, 94, 58, 0.25);">
+            <i class="fa-solid fa-fire"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ profile.streak }} Days</div>
+            <div class="stat-lbl">Daily Study Streak</div>
+        </div>
+    </div>
+    
+    <!-- Experience Points (XP) -->
+    <div class="glass-panel stat-card">
+        <div class="stat-icon" style="color: var(--accent-cyan); background: rgba(6, 182, 212, 0.15); border-color: rgba(6, 182, 212, 0.25);">
+            <i class="fa-solid fa-star"></i>
+        </div>
+        <div>
+            <div class="stat-val"><span class="student-points-val">{{ profile.points }}</span> XP</div>
+            <div class="stat-lbl">Total Experience Points</div>
+        </div>
+    </div>
+    
+    <!-- Completed Weeks/Modules -->
+    <div class="glass-panel stat-card">
+        <div class="stat-icon" style="color: var(--success); background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.25);">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ completed_modules_count }} / {{ total_modules_count }}</div>
+            <div class="stat-lbl">Modules Completed</div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Dashboard Layout Grid -->
+<div class="dashboard-grid">
+    
+    <!-- Left Column: Active Learning Path Timeline -->
+    <div class="flex-column">
+        {% if active_path %}
+            <div class="glass-panel widget-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 style="font-size: 1.4rem;">Active Path: {{ active_path.title }}</h2>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase;">
+                            Goal: {{ active_path.career_target }} | Duration: {{ active_path.duration_weeks }} Weeks
+                        </span>
+                    </div>
+                    <a href="{% url 'result_detail' active_path.id %}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                        <i class="fa-solid fa-eye"></i> Full Path Details
+                    </a>
+                </div>
+                
+                <!-- Path Progress Bar -->
+                <div class="progress-container" style="margin-bottom: 2.5rem; background: rgba(255, 255, 255, 0.02); padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div class="progress-labels" style="margin-bottom: 0.5rem; font-weight: 600;">
+                        <span>Pathway Progress</span>
+                        <span class="progress-percent-val" style="color: var(--accent-purple);">{{ progress_percentage }}%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: {{ progress_percentage }}%;"></div>
+                    </div>
+                </div>
+                
+                <h3 class="widget-title"><i class="fa-solid fa-route" style="color: var(--accent-indigo);"></i> Weekly Course Map</h3>
+                
+                <!-- Weekly Module List -->
+                <div class="modules-list">
+                    {% for m in modules %}
+                        <div class="glass-panel module-card {% if m.status == 'Completed' %}completed{% endif %}" id="module-card-{{ m.id }}">
+                            <div class="module-header">
+                                <div>
+                                    <div class="module-meta">Week {{ m.week_number }}</div>
+                                    <h4 class="module-title">{{ m.title }}</h4>
+                                </div>
+                                
+                                <label class="module-checker">
+                                    <input type="checkbox" 
+                                           class="module-checkbox" 
+                                           data-module-id="{{ m.id }}" 
+                                           {% if m.status == 'Completed' %}checked{% endif %}>
+                                    <span class="custom-checkbox"></span>
+                                    <span>Complete</span>
+                                </label>
+                            </div>
+                            <p class="module-desc">{{ m.description }}</p>
+                            
+                            <!-- Drawer of recommended Resources -->
+                            {% if m.recommendations.exists %}
+                                <div class="resources-drawer">
+                                    <div class="drawer-title"><i class="fa-solid fa-graduation-cap"></i> Recommended Study Resources</div>
+                                    <div class="resources-list">
+                                        {% for res in m.recommendations %}
+                                            <a href="{{ res.url }}" target="_blank" class="resource-chip" title="{{ res.description }}">
+                                                {% if res.resource_type == 'Video' %}
+                                                    <i class="fa-brands fa-youtube" style="color: #ef4444;"></i>
+                                                {% elif res.resource_type == 'Reading' %}
+                                                    <i class="fa-solid fa-book" style="color: var(--accent-indigo);"></i>
+                                                {% elif res.resource_type == 'Practice' %}
+                                                    <i class="fa-solid fa-code" style="color: var(--success);"></i>
+                                                {% else %}
+                                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                {% endif %}
+                                                {{ res.title }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <!-- Fallback if no active roadmap generated -->
+            <div class="glass-panel widget-card" style="text-align: center; padding: 4rem 2rem;">
+                <i class="fa-solid fa-compass" style="font-size: 4rem; color: var(--accent-indigo); margin-bottom: 1.5rem; opacity: 0.6;"></i>
+                <h2 style="font-size: 1.6rem; margin-bottom: 0.75rem;">No Active Learning Path</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                    You haven't generated a personalized learning roadmap yet. Complete the multi-step questionnaire to generate a structured weekly schedule.
+                </p>
+                <a href="{% url 'generate_path' %}" class="btn btn-primary" style="padding: 0.85rem 2rem;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate AI Pathway Now
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Right Column: Gamification widgets, Streaks & Leaderboard -->
+    <div class="flex-column">
+        
+        <!-- Badges Cabinet Widget -->
+        <div class="glass-panel widget-card">
+            <h3 class="widget-title"><i class="fa-solid fa-medal" style="color: var(--accent-purple);"></i> Achievements Cabinet</h3>
+            {% if earned_badges.exists %}
+                <div class="badges-cabinet">
+                    {% for sb in earned_badges %}
+                        <div class="badge-item earned" title="{{ sb.badge.description }} (Earned {{ sb.earned_at|date:'M d, Y' }})">
+                            <div class="badge-icon-box">
+                                <i class="{{ sb.badge.icon }}"></i>
+                            </div>
+                            <span class="badge-name">{{ sb.badge.name }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 1rem 0;">
+                    No achievements unlocked yet. Finish your first week module or generate a pathway to earn badges!
+                </p>
+            {% endif %}
+        </div>
+        
+        <!-- Leaderboard Widget -->
+        <div class="glass-panel widget-card">
+            <h3 class="widget-title"><i class="fa-solid fa-trophy" style="color: var(--warning);"></i> Student Leaderboard</h3>
+            <div class="leaderboard-list">
+                {% for stud in leaderboard %}
+                    <div class="leaderboard-item {% if stud.user == user %}my-rank{% endif %}" 
+                         style="{% if stud.user == user %}border-color: var(--accent-purple); background: rgba(139, 92, 246, 0.08);{% endif %}">
+                        <span class="leaderboard-rank">#{{ forloop.counter }}</span>
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed={{ stud.user.username }}" class="leaderboard-avatar" alt="Avatar">
+                        <span class="leaderboard-name">{{ stud.full_name|default:stud.user.username }} {% if stud.user == user %}(You){% endif %}</span>
+                        <span class="leaderboard-pts">{{ stud.points }} XP</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Counselor Assistant Quick Teaser -->
+        <div class="glass-panel widget-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);">
+            <h3 class="widget-title" style="margin-bottom: 0.5rem;"><i class="fa-solid fa-robot" style="color: var(--accent-cyan);"></i> Stuck on studies?</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+                Click on the floating robotic Counselor icon in the bottom right corner. Ask questions about Python programming, databases, web servers, or portfolios!
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

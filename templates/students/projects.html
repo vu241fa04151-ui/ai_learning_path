@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Suggested Projects - AI LearnPath{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Project Suggestions</h1>
+        <p class="page-subtitle">Hands-on applications to build as you progress. Move from basics to professional deployments.</p>
+    </div>
+</div>
+
+{% if active_path %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+        {% for proj in projects %}
+            <div class="glass-panel widget-card" style="display: flex; flex-direction: column; justify-content: space-between; border-color: rgba(139, 92, 246, 0.15);">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                        <span style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 6px; text-transform: uppercase;
+                                     background: {% if proj.difficulty == 'Beginner' %}rgba(16, 185, 129, 0.15); color: var(--success);{% elif proj.difficulty == 'Intermediate' %}rgba(245, 158, 11, 0.15); color: var(--warning);{% else %}rgba(236, 72, 153, 0.15); color: var(--accent-pink);{% endif %}">
+                            {{ proj.difficulty }} Build
+                        </span>
+                        
+                        <span style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 600;">{{ proj.technologies }}</span>
+                    </div>
+                    
+                    <h3 style="font-size: 1.3rem; margin-bottom: 0.75rem; color: white;">{{ proj.title }}</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6;">
+                        {{ proj.description }}
+                    </p>
+                    
+                    {% if proj.milestones %}
+                        <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-bottom: 1.5rem;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-indigo); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">
+                                Milestones & Checklist
+                            </div>
+                            <div style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6; white-space: pre-line;">{{ proj.milestones }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div style="display: flex; gap: 0.75rem;">
+                    <a href="https://github.com" target="_blank" class="btn btn-primary" style="flex-grow: 1; justify-content: center; font-size: 0.85rem;">
+                        <i class="fa-brands fa-github"></i> Create Repository
+                    </a>
+                    <button class="btn btn-secondary" onclick="alert('Great choice! Code this project locally on your IDE. If you hit a roadblock, ask your AI Counselor for help!')" style="font-size: 0.85rem;">
+                        <i class="fa-solid fa-play"></i> Start
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="glass-panel widget-card" style="text-align: center; padding: 4rem 2rem; max-width: 600px; margin: 2rem auto;">
+        <i class="fa-solid fa-laptop-code" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1.5rem; opacity: 0.5;"></i>
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.75rem;">No Active Pathway</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+            Project suggestions are customized based on the active generated roadmap. Head over to the path generator page to create a path first.
+        </p>
+        <a href="{% url 'generate_path' %}" class="btn btn-primary">
+            <i class="fa-solid fa-compass"></i> Go to Generator
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
