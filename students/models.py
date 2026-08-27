@@ -146,3 +146,27 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f"{self.feedback_type} by {self.student.user.username} at {self.created_at.strftime('%Y-%m-%d')}"
+
+class EduAgentReview(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='eduagent_reviews')
+    learning_path = models.ForeignKey(LearningPath, on_delete=models.CASCADE, related_name='eduagent_reviews')
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_tasks = models.IntegerField()
+    in_progress_tasks = models.IntegerField()
+    total_tasks = models.IntegerField()
+    observed_logs = models.TextField() # Store as JSON list or string
+    performance_analysis = models.TextField()
+    path_adjustment = models.TextField()
+    decision = models.TextField(blank=True)
+    recommendation = models.TextField()
+
+    def get_logs_list(self):
+        import json
+        try:
+            return json.loads(self.observed_logs)
+        except Exception:
+            return []
+
+    def __str__(self):
+        return f"Review for {self.student.user.username} - {self.created_at.strftime('%Y-%m-%d')}"
+

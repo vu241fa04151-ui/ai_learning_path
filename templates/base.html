@@ -11,7 +11,7 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=1.6">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -136,7 +136,7 @@
     {% endif %}
 
     <!-- Custom Script File -->
-    <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/main.js' %}?v=1.6"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

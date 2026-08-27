@@ -10,7 +10,7 @@ from django.db.models import Q
 from .models import (
     StudentProfile, Skill, Badge, StudentBadge, 
     LearningPath, Module, Progress, Recommendation, 
-    ProjectSuggestion, Feedback
+    ProjectSuggestion, Feedback, EduAgentReview
 )
 from .forms import (
     UserRegisterForm, StudentProfileForm, 
@@ -55,6 +55,58 @@ def register(request):
     else:
         form = UserRegisterForm()
     return render(request, 'students/register.html', {'form': form})
+
+def calculate_learning_insights(profile, active_path, reviews):
+    insights = []
+    if not active_path or not reviews.exists():
+        return insights
+        
+    latest = reviews[0]
+    
+    # 1. Progress Trend & 2. Consistency
+    if reviews.count() >= 2:
+        previous = reviews[1]
+        
+        # Trend
+        latest_pct = int((latest.completed_tasks / latest.total_tasks) * 100) if latest.total_tasks else 0
+        prev_pct = int((previous.completed_tasks / previous.total_tasks) * 100) if previous.total_tasks else 0
+        if latest_pct > prev_pct:
+            insights.append({
+                'type': 'trend',
+                'title': 'Progress Trend',
+                'text': 'Your completion progress has improved since your previous review.'
+            })
+            
+        # Consistency
+        diff = latest.completed_tasks - previous.completed_tasks
+        if diff > 0:
+            insights.append({
+                'type': 'consistency',
+                'title': 'Consistency',
+                'text': f"You completed {diff} task{'s' if diff > 1 else ''} since the last review."
+            })
+            
+    # 3. Current Focus
+    first_incomplete = active_path.modules.exclude(
+        progress_records__student=profile, progress_records__status='Completed'
+    ).order_by('week_number').first()
+    if first_incomplete:
+        clean_title = first_incomplete.title.replace('[ADAPTED: FOCUS] ', '').replace('[ADAPTED: ADVANCED CHALLENGE] ', '').replace('[CONFIRMED] ', '')
+        insights.append({
+            'type': 'focus',
+            'title': 'Current Focus',
+            'text': f"You are currently working on {clean_title}."
+        })
+        
+    # 4. Learning Pace
+    if "Extended remaining modules" in latest.path_adjustment or "Behind" in latest.performance_analysis or "Behind" in latest.decision:
+        insights.append({
+            'type': 'pace',
+            'title': 'Learning Pace',
+            'text': "Your current pace suggests that the remaining roadmap may need more time."
+        })
+        
+    return insights
 
 # --- STUDENT PORTAL / DASHBOARD ---
 
@@ -136,6 +188,16 @@ def dashboard(request):
     # 4. Badges earned
     earned_badges = StudentBadge.objects.filter(student=profile).select_related('badge')
 
+    # 5. EduAgent review
+    latest_review = None
+    past_reviews = []
+    insights = []
+    if active_path:
+        reviews = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at')
+        latest_review = reviews.first()
+        past_reviews = reviews[1:]
+        insights = calculate_learning_insights(profile, active_path, reviews)
+
     context = {
         'profile': profile,
         'active_path': active_path,
@@ -146,6 +208,9 @@ def dashboard(request):
         'upcoming_modules': upcoming_modules[:3],  # limit to next 3
         'leaderboard': leaderboard,
         'earned_badges': earned_badges,
+        'latest_review': latest_review,
+        'past_reviews': past_reviews,
+        'insights': insights,
     }
     return render(request, 'students/dashboard.html', context)
 
@@ -398,3 +463,365 @@ def chatbot_response(request):
         })
         
     return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
+
+@login_required
+def eduagent_review(request):
+    if request.method == 'POST':
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        active_path = LearningPath.objects.filter(student=profile, is_active=True).first()
+        
+        if not active_path:
+            return JsonResponse({'success': False, 'error': 'Generate a learning roadmap first so EduAgent can review your progress.'}, status=400)
+            
+        modules = active_path.modules.all()
+        total_tasks = modules.count()
+        
+        if total_tasks == 0:
+            return JsonResponse({'success': False, 'error': 'Generate a learning roadmap first so EduAgent can review your progress.'}, status=400)
+            
+        # Count statuses
+        completed_tasks = Progress.objects.filter(student=profile, module__in=modules, status='Completed').count()
+        in_progress_tasks = Progress.objects.filter(student=profile, module__in=modules, status='In Progress').count()
+        remaining_tasks = total_tasks - completed_tasks - in_progress_tasks
+        
+        # Determine current learning pace
+        elapsed_days = (timezone.now() - active_path.created_at).days
+        expected_completed = min(total_tasks, max(1, elapsed_days // 7))
+        
+        # Get previous review BEFORE creating a new one
+        prev_review = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at').first()
+        
+        logs = []
+        logs.append(f"🔍 Observe: Read current roadmap and progress: {completed_tasks} / {total_tasks} modules completed.")
+        logs.append(f"🧠 Analyze: Compare current progress with available study time ({profile.study_hours_per_day} hours/day): {in_progress_tasks} in progress, {remaining_tasks} remaining.")
+        
+        # Determine pace and add evaluate log
+        pace = "On Track"
+        if completed_tasks == total_tasks:
+            pace = "Completed"
+            logs.append("⚖️ Evaluate: Evaluate learning pace: Pathway fully completed!")
+        elif completed_tasks == 0 and in_progress_tasks == 0:
+            pace = "Not Started"
+            logs.append("⚖️ Evaluate: Evaluate learning pace: Learning path not yet initiated.")
+        else:
+            if elapsed_days == 0:
+                if completed_tasks >= 1:
+                    pace = "Ahead of Schedule"
+                    logs.append("⚖️ Evaluate: Evaluate learning pace: Accelerated progress on Day 1.")
+                else:
+                    pace = "On Track"
+                    logs.append("⚖️ Evaluate: Evaluate learning pace: Learning pace is normal for Day 1.")
+            else:
+                if completed_tasks > expected_completed:
+                    pace = "Ahead of Schedule"
+                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Student is moving faster than expected ({completed_tasks} completed vs {expected_completed} expected).")
+                elif completed_tasks < expected_completed:
+                    pace = "Behind Schedule"
+                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Student is falling behind ({completed_tasks} completed vs {expected_completed} expected).")
+                else:
+                    pace = "On Track"
+                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Progress matches expected timeline of {expected_completed} weeks.")
+
+        # Remember log entry
+        if prev_review:
+            diff = completed_tasks - prev_review.completed_tasks
+            if diff > 0:
+                logs.append(f"💾 Remember: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Student completed {diff} additional modules.")
+            else:
+                logs.append(f"💾 Remember: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Completed tasks remain unchanged.")
+        else:
+            logs.append("💾 Remember: No previous reviews found. Stored initial review in memory.")
+
+        # Find next incomplete module
+        first_incomplete = active_path.modules.exclude(
+            progress_records__student=profile, progress_records__status='Completed'
+        ).order_by('week_number').first()
+        
+        next_step_title = first_incomplete.title if first_incomplete else "All modules complete"
+        
+        # Decide log entry
+        logs.append(f"📋 Decide: Determine the appropriate next learning action: Adapt learning recommendations for '{pace}' pace.")
+        logs.append(f"🚀 Recommend: Recommend the next task: Focus on '{next_step_title}'.")
+
+        # Memory commentary variables
+        memory_perf_comment = ""
+        memory_rec_comment = ""
+        if prev_review:
+            diff = completed_tasks - prev_review.completed_tasks
+            if diff > 0:
+                memory_perf_comment = f" Since your last review on {prev_review.created_at.strftime('%b %d')}, you successfully completed {diff} additional module{'s' if diff > 1 else ''}. This is an excellent trend of improvement!"
+                memory_rec_comment = " Keep pushing on this positive momentum."
+            else:
+                memory_perf_comment = f" We noticed your progress has remained flat at {completed_tasks} completed modules since your last review on {prev_review.created_at.strftime('%b %d')}. Consistency is key; try splitting large tasks into smaller daily goals."
+                memory_rec_comment = " Consider spending just 15 minutes today to read the first resource of the current week to restart your progress momentum."
+
+        # Performance analysis and adaptation
+        performance_analysis = ""
+        path_adjustment = ""
+        recommendation = ""
+
+        if pace == "Completed":
+            performance_analysis = (
+                f"Outstanding work! You have fully completed all {total_tasks} modules of your '{active_path.career_target}' roadmap. "
+                "You have demonstrated extreme consistency."
+            )
+            path_adjustment = (
+                "No adjustments needed. You have completed the curriculum!"
+            )
+            recommendation = (
+                "Recommend applying your skills by building advanced portfolio projects, contributing to open source, "
+                "or generating a new roadmap in a different technical domain."
+            )
+        elif pace == "Not Started":
+            performance_analysis = (
+                f"You have not started your study path yet. Setting up a learning habit is key."
+            )
+            if prev_review:
+                performance_analysis += memory_perf_comment
+            path_adjustment = (
+                f"Let's focus on setting up a manageable study routine of {profile.study_hours_per_day} hours/day."
+            )
+            recommendation = (
+                f"Start with Week 1 module: '{next_step_title}'. Read the first recommended resource and check it off today."
+            )
+            if prev_review:
+                recommendation += memory_rec_comment
+        elif pace == "Ahead of Schedule":
+            performance_analysis = (
+                f"Superb pace! You have completed {completed_tasks} modules, which is ahead of the expected {expected_completed} weeks. "
+                f"You are mastering the material quickly."
+            )
+            if prev_review:
+                performance_analysis += memory_perf_comment
+            
+            # Suggest advanced project or challenge
+            suggested_proj = active_path.project_suggestions.order_by('-difficulty').first()
+            proj_text = f"'{suggested_proj.title}'" if suggested_proj else "an advanced full-stack application"
+            
+            path_adjustment = (
+                f"Continue with the scheduled timeline, but consider taking on the advanced project challenge: {proj_text}."
+            )
+            recommendation = (
+                f"Move onto the next module: '{next_step_title}'. Try researching additional advanced subtopics to deepen your understanding."
+            )
+            if prev_review:
+                recommendation += memory_rec_comment
+        elif pace == "Behind Schedule":
+            performance_analysis = (
+                f"You have completed {completed_tasks} out of {total_tasks} modules. Based on the {elapsed_days} days elapsed since path creation, "
+                f"you are slightly behind your initial timeline."
+            )
+            if prev_review:
+                performance_analysis += memory_perf_comment
+            path_adjustment = (
+                f"We suggest adjusting your daily schedule. Consider spacing out modules or dedicating an extra 30 minutes "
+                f"of practice per day to catch up. Focus strictly on core concepts first."
+            )
+            recommendation = (
+                f"Focus on finishing the current incomplete module: '{next_step_title}'. "
+                "Review the practical exercises and reading resources before moving forward."
+            )
+            if prev_review:
+                recommendation += memory_rec_comment
+        else: # On Track
+            performance_analysis = (
+                f"Great job! You are progressing exactly on track, matching the {expected_completed} weeks timeline. "
+                f"Consistency is the most important factor in technical training."
+            )
+            if prev_review:
+                performance_analysis += memory_perf_comment
+            path_adjustment = (
+                f"Continue the roadmap exactly as planned. Your current commitment of {profile.study_hours_per_day} hours/day is working perfectly."
+            )
+            recommendation = (
+                f"Proceed to the next module: '{next_step_title}'. Ensure you code along with any practice/video exercises."
+            )
+            if prev_review:
+                recommendation += memory_rec_comment
+
+        # Save review to database
+        review = EduAgentReview.objects.create(
+            student=profile,
+            learning_path=active_path,
+            completed_tasks=completed_tasks,
+            in_progress_tasks=in_progress_tasks,
+            total_tasks=total_tasks,
+            observed_logs=json.dumps(logs),
+            performance_analysis=performance_analysis,
+            path_adjustment=path_adjustment,
+            decision=path_adjustment,
+            recommendation=recommendation
+        )
+        
+        # Calculate updated insights and history to return in JSON
+        reviews = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at')
+        past_reviews_list = []
+        for r in reviews[1:]:
+            past_reviews_list.append({
+                'created_at': r.created_at.strftime('%b %d, %Y at %H:%M'),
+                'completed_tasks': r.completed_tasks,
+                'total_tasks': r.total_tasks,
+                'decision': r.decision,
+                'recommendation': r.recommendation
+            })
+            
+        insights_list = calculate_learning_insights(profile, active_path, reviews)
+        
+        return JsonResponse({
+            'success': True,
+            'completed_tasks': completed_tasks,
+            'total_tasks': total_tasks,
+            'performance_analysis': performance_analysis,
+            'decision': path_adjustment,
+            'path_adjustment': path_adjustment,
+            'recommendation': recommendation,
+            'logs': logs,
+            'past_reviews': past_reviews_list,
+            'insights': insights_list
+        })
+        
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
+
+@login_required
+def eduagent_adapt(request):
+    if request.method == 'POST':
+        import json
+        profile = get_object_or_404(StudentProfile, user=request.user)
+        active_path = LearningPath.objects.filter(student=profile, is_active=True).first()
+        
+        if not active_path:
+            return JsonResponse({'success': False, 'error': 'Generate a learning roadmap first so EduAgent can review your progress.'}, status=400)
+            
+        latest_review = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at').first()
+        if not latest_review:
+            return JsonResponse({'success': False, 'error': 'Please ask EduAgent to review your progress first so it has the analysis data needed to adapt your path.'}, status=400)
+            
+        # Get modules
+        all_modules = active_path.modules.all().order_by('week_number')
+        completed_modules_ids = Progress.objects.filter(
+            student=profile, module__in=all_modules, status='Completed'
+        ).values_list('module_id', flat=True)
+        
+        remaining_modules = all_modules.exclude(id__in=completed_modules_ids)
+        
+        if not remaining_modules.exists():
+            return JsonResponse({
+                'success': True,
+                'what_changed': "No changes made.",
+                'why': "You have already completed all modules in this roadmap!",
+                'next_step': "All modules complete. Consider generating a new roadmap!"
+            })
+            
+        completed_count = len(completed_modules_ids)
+        total_count = all_modules.count()
+        elapsed_days = (timezone.now() - active_path.created_at).days
+        expected_completed = min(total_count, max(1, elapsed_days // 7))
+        
+        # Decide adaptation category
+        pace = "On Track"
+        if completed_count == total_count:
+            pace = "Completed"
+        elif completed_count == 0:
+            # Check if user has items in progress
+            in_progress_count = Progress.objects.filter(student=profile, module__in=all_modules, status='In Progress').count()
+            if in_progress_count == 0:
+                pace = "Not Started"
+            else:
+                pace = "Behind Schedule"
+        else:
+            if elapsed_days > 0:
+                if completed_count > expected_completed:
+                    pace = "Ahead of Schedule"
+                elif completed_count < expected_completed:
+                    pace = "Behind Schedule"
+                    
+        what_changed = ""
+        why = ""
+        next_step_title = ""
+        
+        if pace == "Behind Schedule":
+            # Action: Reduce weekly load, focus on fundamentals, space out modules
+            why = f"You are currently running behind schedule ({completed_count} completed vs {expected_completed} expected in {elapsed_days} days). EduAgent has adjusted remaining work to prevent burnout."
+            
+            start_week = remaining_modules.first().week_number
+            updated_weeks = []
+            
+            for idx, m in enumerate(remaining_modules):
+                new_week = start_week + idx * 2 # Space them every 2 weeks
+                m.week_number = new_week
+                m.order = new_week
+                
+                # Adapt title/desc
+                clean_title = m.title.replace('[ADAPTED: ADVANCED CHALLENGE] ', '').replace('[ADAPTED: FOCUS] ', '').replace('[CONFIRMED] ', '')
+                m.title = f"[ADAPTED: FOCUS] {clean_title}"
+                
+                clean_desc = m.description.replace('Essential Core Only: Focus on main tools and syntax. Skip heavy theoretical details. ', '').replace('Advanced Deep-Dive: Apply architectural design, performance tuning, and build custom projects. ', '')
+                m.description = f"Essential Core Only: Focus on main tools and syntax. Skip heavy theoretical details. {clean_desc}"
+                m.save()
+                updated_weeks.append(new_week)
+                
+            max_week = max(updated_weeks) if updated_weeks else active_path.duration_weeks
+            active_path.duration_weeks = max_week
+            active_path.save()
+            
+            what_changed = f"Extended remaining modules to space out every 2 weeks (Week {', '.join(map(str, updated_weeks))}). Refocused curriculum titles and descriptions to emphasize core fundamentals only."
+            next_step_title = remaining_modules.first().title
+            
+        elif pace == "Ahead of Schedule":
+            # Action: Compress remaining timeline, add advanced tasks
+            why = f"You are progressing ahead of schedule ({completed_count} completed vs {expected_completed} expected). EduAgent has compressed remaining timeline and added advanced tasks."
+            
+            start_week = remaining_modules.first().week_number
+            updated_weeks = []
+            
+            for idx, m in enumerate(remaining_modules):
+                new_week = start_week + idx
+                m.week_number = new_week
+                m.order = new_week
+                
+                clean_title = m.title.replace('[ADAPTED: FOCUS] ', '').replace('[ADAPTED: ADVANCED CHALLENGE] ', '').replace('[CONFIRMED] ', '')
+                m.title = f"[ADAPTED: ADVANCED CHALLENGE] {clean_title}"
+                
+                clean_desc = m.description.replace('Essential Core Only: Focus on main tools and syntax. Skip heavy theoretical details. ', '').replace('Advanced Deep-Dive: Apply architectural design, performance tuning, and build custom projects. ', '')
+                m.description = f"Advanced Deep-Dive: Apply architectural design, performance tuning, and build custom projects. {clean_desc}"
+                m.save()
+                updated_weeks.append(new_week)
+                
+            max_week = max(updated_weeks) if updated_weeks else active_path.duration_weeks
+            active_path.duration_weeks = max_week
+            active_path.save()
+            
+            what_changed = "Merged and compressed remaining module timelines. Injected '[ADAPTED: ADVANCED CHALLENGE]' deep-dive guidelines and custom project benchmarks into descriptions."
+            next_step_title = remaining_modules.first().title
+            
+        else: # On Track or Not Started
+            why = "You are currently proceeding on track with your roadmap. EduAgent validated your timeline."
+            
+            for m in remaining_modules:
+                clean_title = m.title.replace('[ADAPTED: FOCUS] ', '').replace('[ADAPTED: ADVANCED CHALLENGE] ', '').replace('[CONFIRMED] ', '')
+                m.title = f"[CONFIRMED] {clean_title}"
+                m.save()
+            
+            what_changed = "Validated existing roadmap timeline and verified sequence order. Prefixed future modules with '[CONFIRMED]' to reinforce your current curriculum pace."
+            next_step_title = remaining_modules.first().title
+
+        # Update the latest review to reflect the adaptation action taken
+        try:
+            logs = json.loads(latest_review.observed_logs)
+        except Exception:
+            logs = []
+        logs.append(f"🔄 Adapted pathway: {what_changed}")
+        latest_review.observed_logs = json.dumps(logs)
+        latest_review.path_adjustment = f"Adapted path: {what_changed}"
+        latest_review.save()
+        
+        return JsonResponse({
+            'success': True,
+            'what_changed': what_changed,
+            'why': why,
+            'next_step': next_step_title
+        })
+        
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
+
+

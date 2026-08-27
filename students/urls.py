@@ -25,4 +25,6 @@ urlpatterns = [
     # AJAX / API Endpoints
     path('api/toggle-module-progress/', views.toggle_module_progress, name='toggle_module_progress'),
     path('api/chatbot/', views.chatbot_response, name='chatbot_response'),
+    path('api/eduagent-review/', views.eduagent_review, name='eduagent_review'),
+    path('api/eduagent-adapt/', views.eduagent_adapt, name='eduagent_adapt'),
 ]
