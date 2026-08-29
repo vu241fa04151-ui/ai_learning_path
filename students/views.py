@@ -432,31 +432,106 @@ def chatbot_response(request):
         profile = get_object_or_404(StudentProfile, user=request.user)
         active_path = LearningPath.objects.filter(student=profile, is_active=True).first()
         
-        # Rule-based NLP assistant
-        response_text = ""
-        
-        if "python" in user_message:
-            response_text = "Python is a powerful high-level programming language used in web development, data science, and automation. If you're building websites, I recommend starting with basic syntax, then diving straight into **Django** views and templates!"
-        elif "django" in user_message:
-            response_text = "Django is a high-level Python web framework that follows the MVT (Model-View-Template) pattern. It has a built-in admin panel, ORM for databases, and authentication out of the box, making backend building incredibly fast!"
-        elif "javascript" in user_message or "js" in user_message:
-            response_text = "JavaScript is the programming language of the web. It runs client-side to add clicks, animations, and async data calls (fetch). Make sure to practice DOM manipulation and Promises before moving to **React**."
-        elif "react" in user_message:
-            response_text = "React is a component-based frontend UI library created by Facebook. It uses a virtual DOM to update views dynamically. Mastering state (`useState`), hooks, and props is crucial for building frontend applications."
-        elif "job" in user_message or "career" in user_message or "interview" in user_message:
-            response_text = "To ace your interviews, compile your mini projects into a professional portfolio. Host them on GitHub, write thorough README files, and practice coding challenges on websites like freeCodeCamp and Codewars."
-        elif "stuck" in user_message or "help" in user_message or "doubt" in user_message:
-            response_text = "If you're stuck on a module or have technical doubts, you can submit an official query on our **Feedback** page. Our mentors and administrators will reply to you directly!"
-        elif "path" in user_message or "roadmap" in user_message:
-            if active_path:
-                response_text = f"You are currently working on **{active_path.title}**. It spans {active_path.duration_weeks} weeks, and you have completed {active_path.progress_percentage}% of it. Stay consistent to earn your graduation badge!"
-            else:
-                response_text = "You don't have an active learning path yet! Head over to the **Generate Path** page to generate a custom roadmap based on your education level and career goals."
-        elif "hello" in user_message or "hi" in user_message or "hey" in user_message:
-            response_text = f"Hello {profile.full_name or profile.user.username}! I am your AI Counselor. How can I help you with your learning path or coding studies today?"
-        else:
-            response_text = "That is a great question! For specific technical issues, I recommend checking official documentation links listed in your **Resources** tab, or posting a doubt on our **Feedback** page so our admins can assist you."
+        # Calculate context variables
+        completed_count = 0
+        total_count = 0
+        in_progress_count = 0
+        remaining_count = 0
+        next_incomplete_title = "None (curriculum complete)"
+        career_target = active_path.career_target if active_path else "Not set"
+        study_hours = profile.study_hours_per_day
+        skills = profile.skills if hasattr(profile, 'skills') else "None listed"
+        if not skills:
+            skills = "None listed"
             
+        latest_review = None
+        if active_path:
+            latest_review = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at').first()
+            
+            all_modules = active_path.modules.all()
+            total_count = all_modules.count()
+            completed_count = Progress.objects.filter(student=profile, module__in=all_modules, status='Completed').count()
+            in_progress_count = Progress.objects.filter(student=profile, module__in=all_modules, status='In Progress').count()
+            remaining_count = total_count - completed_count - in_progress_count
+            
+            first_incomplete = all_modules.exclude(
+                progress_records__student=profile, progress_records__status='Completed'
+            ).order_by('week_number').first()
+            if first_incomplete:
+                next_incomplete_title = first_incomplete.title.replace('[ADAPTED: FOCUS] ', '').replace('[ADAPTED: ADVANCED CHALLENGE] ', '').replace('[CONFIRMED] ', '')
+
+        latest_analysis = latest_review.performance_analysis if latest_review else "No progress review run yet."
+        latest_decision = latest_review.decision if latest_review else "No decision made yet."
+        
+        # Suggestion checks
+        if "what should i learn next" in user_message or "learn next" in user_message:
+            if not active_path:
+                response_text = "You don't have an active learning path yet! Head over to the **Generate Path** page to build your custom roadmap."
+            elif completed_count == total_count:
+                response_text = f"Congratulations! You have completed all {total_count} modules in your '{career_target}' roadmap. You are ready to start building custom project portfolio pieces!"
+            else:
+                response_text = f"Based on your target of **{career_target}**, you should focus on **{next_incomplete_title}** next. You have completed {completed_count}/{total_count} modules. Keep studying!"
+                
+        elif "am i behind schedule" in user_message or "behind schedule" in user_message:
+            if not active_path:
+                response_text = "Please generate a learning roadmap first so I can evaluate your progress schedule."
+            elif not latest_review:
+                response_text = "I haven't analyzed your progress yet. Please click the **Ask EduAgent to Review My Progress** button on your dashboard to run a real-time schedule evaluation!"
+            else:
+                response_text = f"Here is EduAgent's schedule analysis: *'{latest_analysis}'*. The decision made is: *'{latest_decision}'*. Your current progress stands at {completed_count} completed tasks out of {total_count}."
+                
+        elif "adjust my learning plan" in user_message or "adjust plan" in user_message or "adapt my learning" in user_message:
+            if not active_path:
+                response_text = "You need an active learning path first to make timeline adjustments."
+            elif not latest_review:
+                response_text = "Please run a progress review first so EduAgent can establish a baseline before adapting your timeline."
+            else:
+                response_text = f"EduAgent recommends: *'{latest_decision}'*. You can apply these changes directly to your database by clicking the **Adapt My Learning Path** button under the Advisor card on your dashboard!"
+                
+        elif "give me study advice" in user_message or "study advice" in user_message or "advice" in user_message:
+            response_text = (
+                f"With a career target of **{career_target}** and available time of **{study_hours} hours/day**, here is your advice:\n"
+                f"- Dedicate consistent daily slots for focused coding.\n"
+                f"- Your current focus is **{next_incomplete_title}**.\n"
+                f"- EduAgent's latest decision is: *'{latest_decision}'*.\n"
+                f"- Practice active recall and build small scripts for each topic you learn!"
+            )
+            
+        # General topics context-aware answers
+        elif "python" in user_message:
+            response_text = (
+                f"Python is a powerful language and the foundation for your target **{career_target}**. "
+                f"I recommend utilizing your {study_hours} hours/day to build scripts matching **{next_incomplete_title}**. "
+                "Master Python's collections, data types, and logic before moving to frameworks."
+            )
+        elif "django" in user_message:
+            response_text = (
+                f"Django is a great backend framework. Since your goal is **{career_target}**, mastering Django models, ORM, "
+                f"and MVT will help you build robust apps. Focus on these concepts in your current module: **{next_incomplete_title}**."
+            )
+        elif "javascript" in user_message or "js" in user_message:
+            response_text = (
+                "JavaScript is essential for interactive web clients. Focus on practicing async functions (Promises/fetch) "
+                f"and DOM changes. If your current focus **{next_incomplete_title}** is front-end, spend extra time coding along."
+            )
+        elif "react" in user_message:
+            response_text = (
+                "React utilizes a virtual DOM and components. Practice state props, hook cycles, and context APIs. "
+                f"This will prepare you well for the career target of **{career_target}**."
+            )
+        elif "hello" in user_message or "hi" in user_message or "hey" in user_message:
+            response_text = f"Hello {profile.full_name or profile.user.username}! I am your AI Academic Counselor. Ask me about your roadmap, schedule, or next steps!"
+        else:
+            # Full context-aware fallback response
+            if active_path:
+                response_text = (
+                    f"As your AI Academic Counselor, I see your target is **{career_target}** with study hours of **{study_hours} hours/day**. "
+                    f"You have completed **{completed_count}** out of **{total_count}** modules on your active path (**{active_path.title}**). "
+                    f"EduAgent's latest analysis is: *'{latest_analysis}'*. Let me know how I can help you with study guidelines or roadmap queries!"
+                )
+            else:
+                response_text = "I am your AI Academic Counselor. Please generate a learning roadmap so I can provide customized, context-aware coding guidance!"
+                
         return JsonResponse({
             'success': True,
             'reply': response_text
@@ -492,45 +567,46 @@ def eduagent_review(request):
         prev_review = EduAgentReview.objects.filter(student=profile, learning_path=active_path).order_by('-created_at').first()
         
         logs = []
-        logs.append(f"🔍 Observe: Read current roadmap and progress: {completed_tasks} / {total_tasks} modules completed.")
-        logs.append(f"🧠 Analyze: Compare current progress with available study time ({profile.study_hours_per_day} hours/day): {in_progress_tasks} in progress, {remaining_tasks} remaining.")
+        logs.append(f"🔍 OBSERVE: Read current roadmap and progress: {completed_tasks} / {total_tasks} modules completed.")
+        logs.append(f"🧠 ANALYZE: Compare current progress with available study time ({profile.study_hours_per_day} hours/day): {in_progress_tasks} in progress, {remaining_tasks} remaining.")
         
         # Determine pace and add evaluate log
         pace = "On Track"
         if completed_tasks == total_tasks:
             pace = "Completed"
-            logs.append("⚖️ Evaluate: Evaluate learning pace: Pathway fully completed!")
+            logs.append("⚖️ EVALUATE: Evaluate learning pace: Pathway fully completed!")
         elif completed_tasks == 0 and in_progress_tasks == 0:
             pace = "Not Started"
-            logs.append("⚖️ Evaluate: Evaluate learning pace: Learning path not yet initiated.")
+            logs.append("⚖️ EVALUATE: Evaluate learning pace: Learning path not yet initiated.")
         else:
             if elapsed_days == 0:
                 if completed_tasks >= 1:
                     pace = "Ahead of Schedule"
-                    logs.append("⚖️ Evaluate: Evaluate learning pace: Accelerated progress on Day 1.")
+                    logs.append("⚖️ EVALUATE: Evaluate learning pace: Accelerated progress on Day 1.")
                 else:
                     pace = "On Track"
-                    logs.append("⚖️ Evaluate: Evaluate learning pace: Learning pace is normal for Day 1.")
+                    logs.append("⚖️ EVALUATE: Evaluate learning pace: Learning pace is normal for Day 1.")
             else:
                 if completed_tasks > expected_completed:
                     pace = "Ahead of Schedule"
-                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Student is moving faster than expected ({completed_tasks} completed vs {expected_completed} expected).")
+                    logs.append(f"⚖️ EVALUATE: Evaluate learning pace: Student is moving faster than expected ({completed_tasks} completed vs {expected_completed} expected).")
                 elif completed_tasks < expected_completed:
                     pace = "Behind Schedule"
-                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Student is falling behind ({completed_tasks} completed vs {expected_completed} expected).")
+                    logs.append(f"⚖️ EVALUATE: Evaluate learning pace: Student is falling behind ({completed_tasks} completed vs {expected_completed} expected).")
                 else:
                     pace = "On Track"
-                    logs.append(f"⚖️ Evaluate: Evaluate learning pace: Progress matches expected timeline of {expected_completed} weeks.")
+                    logs.append(f"⚖️ EVALUATE: Evaluate learning pace: Progress matches expected timeline of {expected_completed} weeks.")
 
-        # Remember log entry
+        # Remember / Decide log entry
+        diff = 0
         if prev_review:
             diff = completed_tasks - prev_review.completed_tasks
             if diff > 0:
-                logs.append(f"💾 Remember: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Student completed {diff} additional modules.")
+                logs.append(f"📋 DECIDE: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Student completed {diff} additional modules. Action: Reinforce study patterns.")
             else:
-                logs.append(f"💾 Remember: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Completed tasks remain unchanged.")
+                logs.append(f"📋 DECIDE: Compare with previous review on {prev_review.created_at.strftime('%Y-%m-%d')}. Completed tasks remain unchanged. Action: Restructure workloads.")
         else:
-            logs.append("💾 Remember: No previous reviews found. Stored initial review in memory.")
+            logs.append("📋 DECIDE: No previous reviews found. Stored initial review in memory. Action: Initiate schedule tracking.")
 
         # Find next incomplete module
         first_incomplete = active_path.modules.exclude(
@@ -539,15 +615,13 @@ def eduagent_review(request):
         
         next_step_title = first_incomplete.title if first_incomplete else "All modules complete"
         
-        # Decide log entry
-        logs.append(f"📋 Decide: Determine the appropriate next learning action: Adapt learning recommendations for '{pace}' pace.")
-        logs.append(f"🚀 Recommend: Recommend the next task: Focus on '{next_step_title}'.")
+        # Act log entry
+        logs.append(f"🚀 ACT: Recommend next task: Focus on '{next_step_title}'.")
 
         # Memory commentary variables
         memory_perf_comment = ""
         memory_rec_comment = ""
         if prev_review:
-            diff = completed_tasks - prev_review.completed_tasks
             if diff > 0:
                 memory_perf_comment = f" Since your last review on {prev_review.created_at.strftime('%b %d')}, you successfully completed {diff} additional module{'s' if diff > 1 else ''}. This is an excellent trend of improvement!"
                 memory_rec_comment = " Keep pushing on this positive momentum."
@@ -810,16 +884,20 @@ def eduagent_adapt(request):
             logs = json.loads(latest_review.observed_logs)
         except Exception:
             logs = []
-        logs.append(f"🔄 Adapted pathway: {what_changed}")
+        logs.append(f"🔄 ACT: Adapted pathway: {what_changed}")
         latest_review.observed_logs = json.dumps(logs)
         latest_review.path_adjustment = f"Adapted path: {what_changed}"
         latest_review.save()
         
+        career_target = active_path.career_target if active_path else "Not set"
         return JsonResponse({
             'success': True,
+            'observed': f"Observed progress of {completed_count} / {total_count} modules completed under career target '{career_target}'.",
+            'decision': why,
+            'changes': what_changed,
+            'next_step': next_step_title,
             'what_changed': what_changed,
-            'why': why,
-            'next_step': next_step_title
+            'why': why
         })
         
     return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)

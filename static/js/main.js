@@ -131,7 +131,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         const li = document.createElement('li');
                         li.style.opacity = '0';
                         li.style.transition = 'opacity 0.4s ease';
-                        li.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success); margin-right: 0.5rem;"></i> ${data.logs[i]}`;
+                        li.style.display = 'flex';
+                        li.style.alignItems = 'flex-start';
+                        li.style.gap = '0.65rem';
+                        li.style.padding = '0.5rem 0.75rem';
+                        li.style.background = 'rgba(255,255,255,0.02)';
+                        li.style.border = '1px solid rgba(255,255,255,0.05)';
+                        li.style.borderRadius = '8px';
+                        li.style.lineHeight = '1.5';
+                        li.innerHTML = `<span style="font-weight: 700; color: var(--accent-cyan);">${i + 1}</span> <span>${data.logs[i]}</span>`;
                         logsList.appendChild(li);
                         
                         // Stagger the logs visualization
@@ -263,8 +271,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const adaptResult = document.getElementById('eduagent-adapt-result');
     const adaptActionContainer = document.getElementById('adapt-action-container');
     
-    const adaptWhatChanged = document.getElementById('adapt-what-changed');
-    const adaptWhy = document.getElementById('adapt-why');
+    const adaptObserved = document.getElementById('adapt-observed');
+    const adaptDecision = document.getElementById('adapt-decision');
+    const adaptChanges = document.getElementById('adapt-changes');
     const adaptNextStep = document.getElementById('adapt-next-step');
     const reloadRoadmapBtn = document.getElementById('reload-roadmap-btn');
     
@@ -294,8 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (data.success) {
                     // Update adaptation details
-                    if (adaptWhatChanged) adaptWhatChanged.textContent = data.what_changed;
-                    if (adaptWhy) adaptWhy.textContent = data.why;
+                    if (adaptObserved) adaptObserved.textContent = data.observed;
+                    if (adaptDecision) adaptDecision.textContent = data.decision;
+                    if (adaptChanges) adaptChanges.textContent = data.changes;
                     if (adaptNextStep) adaptNextStep.textContent = data.next_step;
                     
                     // Show success result state
@@ -504,6 +514,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Enter') {
                 sendMessage();
             }
+        });
+
+        const suggestBtns = document.querySelectorAll('.chat-suggest-btn');
+        suggestBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                chatInput.value = btn.textContent;
+                sendMessage();
+            });
         });
     }
     
